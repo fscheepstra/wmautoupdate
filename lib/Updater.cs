@@ -48,7 +48,11 @@ namespace WmAutoUpdate
       String fullAppName = GetFullAppName(callingAssembly);
       appPath = Path.GetDirectoryName(fullAppName);
       updateFilePath = Path.Combine(appPath, "wmautoupdate.xml");
-      this.assertPreviousUpdate();
+      try{
+          this.assertPreviousUpdate();
+      }catch(Exception e){
+          Logger.Instance.log("assertPreviousUpdate failed: " + e.Message);
+      }
     }
 
     private void assertPreviousUpdate()
@@ -80,12 +84,16 @@ namespace WmAutoUpdate
     {
       Stream s;
       TransferManager tm = new TransferManager();
-      if (tm.downloadFile(URL, out s, updateFilePath, null))
-      {
-        s.Close();
-        var result = this.showUpdateDialog(s);
-        this.cleanup();
-        return result;
+      try{
+          if (tm.downloadFile(URL, out s, updateFilePath, null))
+          {
+            s.Close();
+            var result = this.showUpdateDialog(s);
+            this.cleanup();
+            return result;
+          }
+      }catch(Exception e){
+          Logger.Instance.log("CheckForNewVersion failed: " + e.Message);
       }
       return RESULT_ERROR;
     }
@@ -291,10 +299,14 @@ namespace WmAutoUpdate
 
     public static string GetFullAppName(Assembly callingAssembly)
     {
-      String fullAppName = callingAssembly.GetName().CodeBase;
-      if (fullAppName.StartsWith("file:\\")) fullAppName = fullAppName.Substring(6);
-      if (fullAppName.StartsWith("file:///")) fullAppName = fullAppName.Substring(8);
-      return fullAppName;
+      String uri = callingAssembly.GetName().CodeBase;
+      if (uri.StartsWith("file:\\"))  uri = uri.Substring(6);
+      if (uri.StartsWith("file:///")) uri = uri.Substring(8);
+      if (uri.StartsWith("file:")) uri = uri.Substring(5);
+      // That could be an absolute linux path - fix it
+      if (uri[1] != ':' && uri[0] != '/' && uri[0] != '\\')
+        uri = "/"+uri;
+      return uri;
     }
 
     private void restartApp()
